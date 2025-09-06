@@ -171,10 +171,11 @@ local FootballESPToggle = PlayerTab:CreateToggle({
     end,
 })
 
--- === Auto Tuck Toggle (with untuck on toggle off) ===
+-- === Auto Tuck Toggle (with untuck on toggle off, lightning-fast) ===
 local autoTuckEnabled = false
 local autoTuckConnection
 local handledFootball = {} -- track tucked footballs
+local tuckDelay = 0.01 -- lightning-fast tuck timing
 
 local AutoTuckToggle = PlayerTab:CreateToggle({
     Name = "Auto Tuck",
@@ -192,7 +193,7 @@ local AutoTuckToggle = PlayerTab:CreateToggle({
                     if item.Name == "Football" and not handledFootball[item] then
                         handledFootball[item] = true
                         game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
-                        task.wait(0.1)
+                        task.wait(tuckDelay)
                         game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
                     end
                 end
@@ -202,7 +203,7 @@ local AutoTuckToggle = PlayerTab:CreateToggle({
                     if item.Name == "Football" and not handledFootball[item] then
                         handledFootball[item] = true
                         game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
-                        task.wait(0.1)
+                        task.wait(tuckDelay)
                         game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
                     end
                 end
@@ -218,7 +219,7 @@ local AutoTuckToggle = PlayerTab:CreateToggle({
             for item, _ in pairs(handledFootball) do
                 if item and item.Parent then
                     game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
-                    task.wait(0.1)
+                    task.wait(tuckDelay)
                     game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
                 end
             end
