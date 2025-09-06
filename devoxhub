@@ -117,22 +117,22 @@ local FOVSlider = PlayerTab:CreateSlider({
     end,
 })
 
--- === Football ESP Toggle (Animated 0 → 18 studs, single football) ===
+-- === Football ESP Toggle (Animated 0 → 18 studs, proper off) ===
 local espEnabled = false
 local espConnection
 local espSphere
 local animating = false
 
-local function animateSphere(targetRadius)
-    if not espSphere then return end
+local function animateSphere(sphere, targetRadius)
+    if not sphere then return end
     animating = true
 
-    while animating and math.abs(espSphere.Radius - targetRadius) > 0.1 do
-        espSphere.Radius = espSphere.Radius + (targetRadius - espSphere.Radius) * 0.2
+    while animating and math.abs(sphere.Radius - targetRadius) > 0.1 do
+        sphere.Radius = sphere.Radius + (targetRadius - sphere.Radius) * 0.2
         RunService.RenderStepped:Wait()
     end
 
-    espSphere.Radius = targetRadius
+    sphere.Radius = targetRadius
     animating = false
 end
 
@@ -151,13 +151,13 @@ local FootballESPToggle = PlayerTab:CreateToggle({
                         espSphere = Instance.new("SphereHandleAdornment")
                         espSphere.Adornee = football
                         espSphere.Radius = 0 -- start at 0 for animation
-                        espSphere.Color3 = Color3.fromRGB(0, 0, 139) -- dark blue
-                        espSphere.Transparency = 0.6 -- semi-transparent
+                        espSphere.Color3 = Color3.fromRGB(0, 0, 139)
+                        espSphere.Transparency = 0.6
                         espSphere.AlwaysOnTop = true
                         espSphere.ZIndex = 5
                         espSphere.Parent = game.CoreGui
                         task.spawn(function()
-                            animateSphere(9) -- expand to 18 studs diameter
+                            animateSphere(espSphere, 9) -- expand to 18 studs diameter
                         end)
                     else
                         espSphere.Adornee = football
@@ -170,19 +170,16 @@ local FootballESPToggle = PlayerTab:CreateToggle({
                 end
             end)
         else
-            -- Animate shrink before removal
-            if espSphere then
-                task.spawn(function()
-                    animateSphere(0)
-                    if espSphere then
-                        espSphere:Destroy()
-                        espSphere = nil
-                    end
-                end)
-            end
+            -- Properly turn off ESP
             if espConnection then
                 espConnection:Disconnect()
                 espConnection = nil
+            end
+
+            if espSphere then
+                animateSphere(espSphere, 0) -- shrink before destroying
+                espSphere:Destroy()
+                espSphere = nil
             end
         end
     end,
