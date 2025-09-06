@@ -6,15 +6,13 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local SoundService = game:GetService("SoundService")
-local Lighting = game:GetService("Lighting")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
--- === Create main window ===
-local Window = Rayfield:CreateWindow({
+-- === KeySystem + Discord (Before Startup) ===
+local WindowConfig = {
     Name = "DevoxHUB",
-    Icon = 93973861464448,   -- your custom icon ID
+    Icon = 93973861464448,
     LoadingTitle = "DevoxHUB MS SCRIPT",
     LoadingSubtitle = "by Cylo",
     ShowText = "Rayfield",
@@ -42,55 +40,47 @@ local Window = Rayfield:CreateWindow({
         GrabKeyFromSite = false,
         Key = {"DEVOXHUB123"}
     }
-})
+}
 
--- === Startup Sound + Camera Shake & Blur ===
-local startupSound = Instance.new("Sound")
-startupSound.SoundId = "rbxassetid://6807091537"
-startupSound.Volume = 1
-startupSound.Looped = false
-startupSound.Parent = SoundService
-startupSound:Play()
+-- === Startup Sound + Blur + Shake ===
+do
+    local sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://6807091537"
+    sound.Volume = 1
+    sound.Parent = workspace
+    sound:Play()
 
-local blur = Instance.new("BlurEffect")
-blur.Size = 0
-blur.Parent = Lighting
+    local blur = Instance.new("BlurEffect", game.Lighting)
+    blur.Size = 0
 
-local shakeDuration = 5
-local shakeMagnitude = 0.5
-local startTime = tick()
-local originalCameraCFrame = camera.CFrame
+    local shakeAmplitude = 0.5
+    local shakeDuration = 5
+    local startTime = tick()
 
-task.delay(shakeDuration, function()
-    if startupSound.IsPlaying then
-        startupSound:Stop()
-    end
-end)
+    local heartbeatConn
+    heartbeatConn = RunService.Heartbeat:Connect(function(dt)
+        local elapsed = tick() - startTime
+        if elapsed > shakeDuration then
+            heartbeatConn:Disconnect()
+            blur:Destroy()
+            return
+        end
+        camera.CFrame = camera.CFrame * CFrame.new(
+            (math.random()-0.5)*shakeAmplitude,
+            (math.random()-0.5)*shakeAmplitude,
+            (math.random()-0.5)*shakeAmplitude
+        )
+        blur.Size = math.sin(elapsed*math.pi/shakeDuration)*24
+    end)
+end
 
-local shakeConnection
-shakeConnection = RunService.RenderStepped:Connect(function()
-    local elapsed = tick() - startTime
-    if elapsed > shakeDuration then
-        camera.CFrame = originalCameraCFrame
-        blur:Destroy()
-        shakeConnection:Disconnect()
-        return
-    end
+-- === Create main window ===
+local Window = Rayfield:CreateWindow(WindowConfig)
 
-    blur.Size = 20 * (1 - (elapsed / shakeDuration))
-
-    local offset = Vector3.new(
-        (math.random() - 0.5) * shakeMagnitude,
-        (math.random() - 0.5) * shakeMagnitude,
-        (math.random() - 0.5) * shakeMagnitude
-    )
-    camera.CFrame = originalCameraCFrame * CFrame.new(offset)
-end)
-
--- === Player tab ===
+-- === Player Tab ===
 local PlayerTab = Window:CreateTab("Player", 4483362458)
 
--- === MAGS toggle ===
+-- === MAGS Toggle ===
 local magsEnabled = false
 local debounce = false
 local magConnection
@@ -102,17 +92,14 @@ local MagToggle = PlayerTab:CreateToggle({
     Flag = "MAGS_Toggle",
     Callback = function(value)
         magsEnabled = value
-
         if magsEnabled then
             magConnection = RunService.Heartbeat:Connect(function()
                 local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
                 if not hrp then return end
-
                 local region = Region3.new(
                     hrp.Position - Vector3.new(MAG_RADIUS, MAG_RADIUS, MAG_RADIUS),
                     hrp.Position + Vector3.new(MAG_RADIUS, MAG_RADIUS, MAG_RADIUS)
                 )
-
                 local footballs = workspace:FindPartsInRegion3(region, nil, math.huge)
                 for _, football in ipairs(footballs) do
                     if football.Name == "Football" and football:IsA("BasePart") then
@@ -141,7 +128,6 @@ local MagToggle = PlayerTab:CreateToggle({
     end,
 })
 
--- Keybind: M toggles MAGS
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.M then
@@ -150,22 +136,20 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- === Football ESP ===
+-- === Football ESP Toggle ===
 local espEnabled = false
 local espConnection
 local espSphere
-local animating = false
 local ESP_RADIUS = 13
+local animating = false
 
 local function animateSphere(sphere, targetRadius)
     if not sphere then return end
     animating = true
-
     while animating and math.abs(sphere.Radius - targetRadius) > 0.1 do
         sphere.Radius = sphere.Radius + (targetRadius - sphere.Radius) * 0.2
         RunService.RenderStepped:Wait()
     end
-
     sphere.Radius = targetRadius
     animating = false
 end
@@ -176,30 +160,26 @@ local FootballESPToggle = PlayerTab:CreateToggle({
     Flag = "FootballESP_Toggle",
     Callback = function(value)
         espEnabled = value
-
         if espEnabled then
             espConnection = RunService.RenderStepped:Connect(function()
-                local football = workspace:FindFirstChild("Football")
-                if football and football:IsA("BasePart") then
-                    if not espSphere then
-                        espSphere = Instance.new("SphereHandleAdornment")
-                        espSphere.Adornee = football
-                        espSphere.Radius = 0
-                        espSphere.Color3 = Color3.fromRGB(0, 0, 139)
-                        espSphere.Transparency = 0.6
-                        espSphere.AlwaysOnTop = true
-                        espSphere.ZIndex = 5
-                        espSphere.Parent = game.CoreGui
-                        task.spawn(function()
-                            animateSphere(espSphere, ESP_RADIUS)
-                        end)
-                    else
-                        espSphere.Adornee = football
-                    end
-                else
-                    if espSphere then
-                        espSphere:Destroy()
-                        espSphere = nil
+                for _, football in ipairs(workspace:GetDescendants()) do
+                    if football:IsA("BasePart") and football.Name == "Football" then
+                        if not espSphere then
+                            espSphere = Instance.new("SphereHandleAdornment")
+                            espSphere.Adornee = football
+                            espSphere.Radius = 0
+                            espSphere.Color3 = Color3.fromRGB(0,0,139)
+                            espSphere.Transparency = 0.6
+                            espSphere.AlwaysOnTop = true
+                            espSphere.ZIndex = 5
+                            espSphere.Parent = game.CoreGui
+                            task.spawn(function()
+                                animateSphere(espSphere, ESP_RADIUS)
+                            end)
+                        else
+                            espSphere.Adornee = football
+                            espSphere.Radius = ESP_RADIUS
+                        end
                     end
                 end
             end)
@@ -208,11 +188,122 @@ local FootballESPToggle = PlayerTab:CreateToggle({
                 espConnection:Disconnect()
                 espConnection = nil
             end
-
             if espSphere then
-                animateSphere(espSphere, 0)
+                animateSphere(espSphere,0)
                 espSphere:Destroy()
                 espSphere = nil
+            end
+        end
+    end,
+})
+
+-- === Defense Hitbox with Auto-Disable on Tackle ===
+local hitboxEnabled = false
+local hitboxConnection
+local hitboxESP
+local HITBOX_RADIUS = 8
+local TACKLE_SPEED = 25
+
+local HitboxToggle = PlayerTab:CreateToggle({
+    Name = "Defense Hitbox",
+    CurrentValue = false,
+    Flag = "DefenseHitbox_Toggle",
+    Callback = function(enabled)
+        hitboxEnabled = enabled
+        if hitboxEnabled then
+            hitboxConnection = RunService.Heartbeat:Connect(function()
+                if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+                local myHRP = player.Character.HumanoidRootPart
+
+                local closestTarget = nil
+                local closestDistance = math.huge
+
+                for _, otherPlayer in ipairs(Players:GetPlayers()) do
+                    if otherPlayer ~= player and otherPlayer.Character then
+                        local hrp = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        local tool = otherPlayer.Character:FindFirstChildOfClass("Tool")
+                        if hrp and tool and tool.Name == "Football" then
+                            local distance = (hrp.Position - myHRP.Position).Magnitude
+                            if distance < closestDistance then
+                                closestDistance = distance
+                                closestTarget = hrp
+                            end
+                        end
+                    end
+                end
+
+                if closestTarget then
+                    if not hitboxESP then
+                        hitboxESP = Instance.new("SphereHandleAdornment")
+                        hitboxESP.Adornee = closestTarget
+                        hitboxESP.Radius = HITBOX_RADIUS
+                        hitboxESP.Color3 = Color3.fromRGB(0,0,139)
+                        hitboxESP.Transparency = 0.6
+                        hitboxESP.AlwaysOnTop = true
+                        hitboxESP.ZIndex = 5
+                        hitboxESP.Parent = game.CoreGui
+                    else
+                        hitboxESP.Adornee = closestTarget
+                        hitboxESP.Radius = HITBOX_RADIUS
+                    end
+
+                    local distanceToTarget = (closestTarget.Position - myHRP.Position).Magnitude
+                    if distanceToTarget <= HITBOX_RADIUS then
+                        local direction = (closestTarget.Position - myHRP.Position).Unit
+                        local velocity = direction * TACKLE_SPEED
+                        if not myHRP:FindFirstChild("TackleVelocity") then
+                            local bv = Instance.new("BodyVelocity")
+                            bv.Name = "TackleVelocity"
+                            bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+                            bv.Velocity = velocity
+                            bv.Parent = myHRP
+                        else
+                            myHRP.TackleVelocity.Velocity = velocity
+                        end
+
+                        -- Auto-disable on tackle
+                        HitboxToggle:Set(false)
+                        hitboxEnabled = false
+                        if hitboxConnection then
+                            hitboxConnection:Disconnect()
+                            hitboxConnection = nil
+                        end
+                        if myHRP:FindFirstChild("TackleVelocity") then
+                            myHRP.TackleVelocity:Destroy()
+                        end
+                        if hitboxESP then
+                            hitboxESP:Destroy()
+                            hitboxESP = nil
+                        end
+                    else
+                        if myHRP:FindFirstChild("TackleVelocity") then
+                            myHRP.TackleVelocity:Destroy()
+                        end
+                    end
+                else
+                    if myHRP:FindFirstChild("TackleVelocity") then
+                        myHRP.TackleVelocity:Destroy()
+                    end
+                    if hitboxESP then
+                        hitboxESP:Destroy()
+                        hitboxESP = nil
+                    end
+                end
+            end)
+        else
+            if hitboxConnection then
+                hitboxConnection:Disconnect()
+                hitboxConnection = nil
+            end
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local myHRP = player.Character.HumanoidRootPart
+                if myHRP:FindFirstChild("TackleVelocity") then
+                    myHRP.TackleVelocity:Destroy()
+                end
+            end
+            if hitboxESP then
+                hitboxESP:Destroy()
+                hitboxESP = nil
             end
         end
     end,
