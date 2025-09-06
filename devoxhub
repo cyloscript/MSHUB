@@ -100,22 +100,9 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.M then
         magsEnabled = not magsEnabled
-        MagToggle:Set(magsEnabled) -- keeps GUI in sync
+        MagToggle:Set(magsEnabled)
     end
 end)
-
--- === FOV Slider ===
-local FOVSlider = PlayerTab:CreateSlider({
-    Name = "FOV",
-    Range = {70, 120},
-    Increment = 1,
-    Suffix = "°",
-    CurrentValue = camera.FieldOfView,
-    Flag = "FOV_Slider",
-    Callback = function(value)
-        camera.FieldOfView = value
-    end,
-})
 
 -- === Football ESP Toggle (Animated 0 → 18 studs, proper off) ===
 local espEnabled = false
@@ -150,14 +137,14 @@ local FootballESPToggle = PlayerTab:CreateToggle({
                     if not espSphere then
                         espSphere = Instance.new("SphereHandleAdornment")
                         espSphere.Adornee = football
-                        espSphere.Radius = 0 -- start at 0 for animation
+                        espSphere.Radius = 0
                         espSphere.Color3 = Color3.fromRGB(0, 0, 139)
                         espSphere.Transparency = 0.6
                         espSphere.AlwaysOnTop = true
                         espSphere.ZIndex = 5
                         espSphere.Parent = game.CoreGui
                         task.spawn(function()
-                            animateSphere(espSphere, 9) -- expand to 18 studs diameter
+                            animateSphere(espSphere, 9)
                         end)
                     else
                         espSphere.Adornee = football
@@ -170,17 +157,74 @@ local FootballESPToggle = PlayerTab:CreateToggle({
                 end
             end)
         else
-            -- Properly turn off ESP
             if espConnection then
                 espConnection:Disconnect()
                 espConnection = nil
             end
 
             if espSphere then
-                animateSphere(espSphere, 0) -- shrink before destroying
+                animateSphere(espSphere, 0)
                 espSphere:Destroy()
                 espSphere = nil
             end
+        end
+    end,
+})
+
+-- === Auto Tuck Toggle (with untuck on toggle off) ===
+local autoTuckEnabled = false
+local autoTuckConnection
+local handledFootball = {} -- track tucked footballs
+
+local AutoTuckToggle = PlayerTab:CreateToggle({
+    Name = "Auto Tuck",
+    CurrentValue = false,
+    Flag = "AutoTuck_Toggle",
+    Callback = function(value)
+        autoTuckEnabled = value
+
+        if autoTuckEnabled then
+            autoTuckConnection = RunService.Heartbeat:Connect(function()
+                if not player.Character then return end
+
+                -- Check backpack
+                for _, item in ipairs(player.Backpack:GetChildren()) do
+                    if item.Name == "Football" and not handledFootball[item] then
+                        handledFootball[item] = true
+                        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                        task.wait(0.1)
+                        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                    end
+                end
+
+                -- Check character
+                for _, item in ipairs(player.Character:GetChildren()) do
+                    if item.Name == "Football" and not handledFootball[item] then
+                        handledFootball[item] = true
+                        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                        task.wait(0.1)
+                        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                    end
+                end
+            end)
+        else
+            -- Disconnect auto tuck
+            if autoTuckConnection then
+                autoTuckConnection:Disconnect()
+                autoTuckConnection = nil
+            end
+
+            -- Untuck each football that was tucked
+            for item, _ in pairs(handledFootball) do
+                if item and item.Parent then
+                    game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                    task.wait(0.1)
+                    game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                end
+            end
+
+            -- Reset tracking table
+            handledFootball = {}
         end
     end,
 })
