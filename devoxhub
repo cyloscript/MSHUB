@@ -6,13 +6,15 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local SoundService = game:GetService("SoundService")
+local Lighting = game:GetService("Lighting")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 -- === Create main window ===
 local Window = Rayfield:CreateWindow({
     Name = "DevoxHUB",
-    Icon = 0,
+    Icon = 93973861464448,   -- your custom icon ID
     LoadingTitle = "DevoxHUB MS SCRIPT",
     LoadingSubtitle = "by Cylo",
     ShowText = "Rayfield",
@@ -42,6 +44,49 @@ local Window = Rayfield:CreateWindow({
     }
 })
 
+-- === Startup Sound + Camera Shake & Blur ===
+local startupSound = Instance.new("Sound")
+startupSound.SoundId = "rbxassetid://6807091537"
+startupSound.Volume = 1
+startupSound.Looped = false
+startupSound.Parent = SoundService
+startupSound:Play()
+
+local blur = Instance.new("BlurEffect")
+blur.Size = 0
+blur.Parent = Lighting
+
+local shakeDuration = 5
+local shakeMagnitude = 0.5
+local startTime = tick()
+local originalCameraCFrame = camera.CFrame
+
+task.delay(shakeDuration, function()
+    if startupSound.IsPlaying then
+        startupSound:Stop()
+    end
+end)
+
+local shakeConnection
+shakeConnection = RunService.RenderStepped:Connect(function()
+    local elapsed = tick() - startTime
+    if elapsed > shakeDuration then
+        camera.CFrame = originalCameraCFrame
+        blur:Destroy()
+        shakeConnection:Disconnect()
+        return
+    end
+
+    blur.Size = 20 * (1 - (elapsed / shakeDuration))
+
+    local offset = Vector3.new(
+        (math.random() - 0.5) * shakeMagnitude,
+        (math.random() - 0.5) * shakeMagnitude,
+        (math.random() - 0.5) * shakeMagnitude
+    )
+    camera.CFrame = originalCameraCFrame * CFrame.new(offset)
+end)
+
 -- === Player tab ===
 local PlayerTab = Window:CreateTab("Player", 4483362458)
 
@@ -49,7 +94,7 @@ local PlayerTab = Window:CreateTab("Player", 4483362458)
 local magsEnabled = false
 local debounce = false
 local magConnection
-local MAG_RADIUS = 13 -- increased from 10
+local MAG_RADIUS = 13
 
 local MagToggle = PlayerTab:CreateToggle({
     Name = "MAGS",
@@ -110,7 +155,7 @@ local espEnabled = false
 local espConnection
 local espSphere
 local animating = false
-local ESP_RADIUS = 13 -- matches MAGS
+local ESP_RADIUS = 13
 
 local function animateSphere(sphere, targetRadius)
     if not sphere then return end
