@@ -84,7 +84,7 @@ local PlayerTab = Window:CreateTab("Player", 4483362458)
 local magsEnabled = false
 local debounce = false
 local magConnection
-local MAG_RADIUS = 13
+local MAG_RADIUS = 9 -- synced with ESP
 
 local MagToggle = PlayerTab:CreateToggle({
     Name = "MAGS",
@@ -139,19 +139,34 @@ end)
 -- === Football ESP Toggle ===
 local espEnabled = false
 local espConnection
-local espSphere
-local ESP_RADIUS = 13
-local animating = false
+local espBalls = {}
+local ESP_RADIUS = 9 -- synced with MAGS
 
-local function animateSphere(sphere, targetRadius)
-    if not sphere then return end
-    animating = true
-    while animating and math.abs(sphere.Radius - targetRadius) > 0.1 do
-        sphere.Radius = sphere.Radius + (targetRadius - sphere.Radius) * 0.2
-        RunService.RenderStepped:Wait()
+local function addFootballESP(football)
+    if espBalls[football] then return end
+    local sphere = Instance.new("SphereHandleAdornment")
+    sphere.Adornee = football
+    sphere.Radius = ESP_RADIUS
+    sphere.Color3 = Color3.fromRGB(0,0,139)
+    sphere.Transparency = 0.6
+    sphere.AlwaysOnTop = true
+    sphere.ZIndex = 5
+    sphere.Parent = game.CoreGui
+    espBalls[football] = sphere
+
+    football.AncestryChanged:Connect(function(_, parent)
+        if not parent and espBalls[football] then
+            espBalls[football]:Destroy()
+            espBalls[football] = nil
+        end
+    end)
+end
+
+local function removeAllFootballESP()
+    for _, sphere in pairs(espBalls) do
+        sphere:Destroy()
     end
-    sphere.Radius = targetRadius
-    animating = false
+    espBalls = {}
 end
 
 local FootballESPToggle = PlayerTab:CreateToggle({
@@ -161,25 +176,25 @@ local FootballESPToggle = PlayerTab:CreateToggle({
     Callback = function(value)
         espEnabled = value
         if espEnabled then
+            for _, football in ipairs(workspace:GetDescendants()) do
+                if football:IsA("BasePart") and football.Name == "Football" then
+                    addFootballESP(football)
+                end
+            end
+
+            workspace.DescendantAdded:Connect(function(obj)
+                if obj:IsA("BasePart") and obj.Name == "Football" then
+                    addFootballESP(obj)
+                end
+            end)
+
             espConnection = RunService.RenderStepped:Connect(function()
-                for _, football in ipairs(workspace:GetDescendants()) do
-                    if football:IsA("BasePart") and football.Name == "Football" then
-                        if not espSphere then
-                            espSphere = Instance.new("SphereHandleAdornment")
-                            espSphere.Adornee = football
-                            espSphere.Radius = 0
-                            espSphere.Color3 = Color3.fromRGB(0,0,139)
-                            espSphere.Transparency = 0.6
-                            espSphere.AlwaysOnTop = true
-                            espSphere.ZIndex = 5
-                            espSphere.Parent = game.CoreGui
-                            task.spawn(function()
-                                animateSphere(espSphere, ESP_RADIUS)
-                            end)
-                        else
-                            espSphere.Adornee = football
-                            espSphere.Radius = ESP_RADIUS
-                        end
+                for football, sphere in pairs(espBalls) do
+                    if not (football and football.Parent) then
+                        sphere:Destroy()
+                        espBalls[football] = nil
+                    else
+                        sphere.Radius = ESP_RADIUS
                     end
                 end
             end)
@@ -188,20 +203,16 @@ local FootballESPToggle = PlayerTab:CreateToggle({
                 espConnection:Disconnect()
                 espConnection = nil
             end
-            if espSphere then
-                animateSphere(espSphere,0)
-                espSphere:Destroy()
-                espSphere = nil
-            end
+            removeAllFootballESP()
         end
     end,
 })
 
--- === Defense Hitbox with Auto-Disable on Tackle ===
+-- === Defense Hitbox Toggle ===
 local hitboxEnabled = false
 local hitboxConnection
 local hitboxESP
-local HITBOX_RADIUS = 8
+local HITBOX_RADIUS = 9 -- optional, you can match with MAGS/ESP
 local TACKLE_SPEED = 25
 
 local HitboxToggle = PlayerTab:CreateToggle({
